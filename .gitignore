@@ -211,3 +211,5 @@ __marimo__/
 /build/
 *.spec
 *.exe
+
+/bin/

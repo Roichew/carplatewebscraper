@@ -5,32 +5,49 @@ import sys
 
 APP_NAME = "CarPlateScraper"
 ENTRY_FILE = "PlateScraper.py"   # 🔁 change if needed
+OUTPUT_DIR = "bin"               # final location of the built app
 
 def build():
     print("🔨 Building executable...")
 
     # PyInstaller command
+    #
+    # NOTE: we intentionally use --onedir (NOT --onefile).
+    # --onefile packs everything into a single self-extracting exe that unpacks
+    # to a temp directory at runtime. That behaviour is flagged by Windows
+    # SmartScreen / Defender as untrusted and the app often refuses to open.
+    # --onedir ships a plain exe next to its dependencies, which is trusted and
+    # also starts faster (no unpack step).
     cmd = [
         sys.executable, "-m", "PyInstaller",
-        "--onefile",
+        "--onedir",
         "--windowed",            # no console window
         "--clean",
+        "--noconfirm",           # overwrite previous build without prompting
         "--name", APP_NAME,
+        "--collect-all", "flet",
+        "--collect-all", "flet_desktop",
         ENTRY_FILE,
     ]
 
     subprocess.run(cmd, check=True)
 
-    # Move exe to project root
-    exe_name = f"{APP_NAME}.exe"
-    src = os.path.join("dist", exe_name)
-    dst = os.path.join(os.getcwd(), exe_name)
+    # PyInstaller --onedir output lives at dist/<APP_NAME>/ (contains the exe
+    # plus an _internal folder with all dependencies). Move that whole folder
+    # into ./bin so the exe and its dependencies stay together.
+    src_dir = os.path.join("dist", APP_NAME)
+    dst_dir = os.path.join(os.getcwd(), OUTPUT_DIR, APP_NAME)
 
-    if os.path.exists(src):
-        shutil.move(src, dst)
-        print(f"✅ EXE created: {exe_name}")
+    if os.path.exists(src_dir):
+        # Clean any previous copy in the output dir first.
+        if os.path.exists(dst_dir):
+            shutil.rmtree(dst_dir)
+        os.makedirs(os.path.join(os.getcwd(), OUTPUT_DIR), exist_ok=True)
+        shutil.move(src_dir, dst_dir)
+        exe_path = os.path.join(dst_dir, f"{APP_NAME}.exe")
+        print(f"✅ App created: {exe_path}")
     else:
-        print("❌ EXE not found!")
+        print("❌ Build output not found!")
 
     # Cleanup
     for folder in ["build", "dist", "__pycache__"]:
